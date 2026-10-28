@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GreenWaste 7 — Autonomous Waste Sorting Core</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669',
+              900: '#064e3b',
+            },
+            obsidian: '#070a12',
+            cardbg: '#0f172a',
+            type: {
+              plastic: '#06b6d4',
+              paper: '#f59e0b',
+              metal: '#94a3b8',
+              cloth: '#a855f7',
+              styrofoam: '#f43f5e',
+              organic: '#10b981',
+              glass: '#38bdf8',
+            }
+          },
+          animation: {
+            'scanline': 'scanline 2.5s ease-in-out infinite',
+            'pulse-glow': 'pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          },
+          keyframes: {
+            scanline: {
+              '0%, 100%': { transform: 'translateY(0%)', opacity: '0.2' },
+              '50%': { transform: 'translateY(100%)', opacity: '0.8' },
+            },
+            pulseGlow: {
+              '0%, 100%': { opacity: '1' },
+              '50%': { opacity: '0.4' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #070a12; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+    /* Subtle grid background */
+    .bg-grid-pattern {
+      background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    .corner-bracket {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-color: rgba(16, 185, 129, 0.6);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="bg-obsidian text-slate-100 min-h-screen font-sans bg-grid-pattern antialiased selection:bg-brand-500 selection:text-black flex flex-col justify-between">
+
+  <!-- TOP APP BAR -->
+  <header class="border-b border-slate-800/80 bg-obsidian/80 backdrop-blur-md sticky top-0 z-40 px-4 lg:px-8 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500/20 to-emerald-900/40 border border-brand-500/40 shadow-[0_0_15px_rgba(16,185,129,0.25)]">
+        <i data-lucide="recycle" class="w-5 h-5 text-brand-400"></i>
+        <span class="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-500"></span>
+        </span>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-base font-extrabold tracking-tight uppercase flex items-center gap-1.5">
+            GreenWaste <span class="text-brand-400 font-mono text-lg font-black">7</span>
+          </h1>
+          <span class="hidden sm:inline-flex px-1.5 py-0.5 rounded text-[10px] font-mono font-medium tracking-wide bg-brand-500/10 text-brand-400 border border-brand-500/20">
+            AI-POWERED SORTING v2.4
+          </span>
+        </div>
+        <p class="text-[11px] text-slate-400 font-mono hidden md:block">Real-time 7-Stream Material Classifier & Pneumatic Chute Core</p>
+      </div>
+    </div>
+
+    <!-- Center System Status -->
+    <div class="hidden lg:flex items-center gap-5 text-xs font-mono bg-slate-900/60 border border-slate-800/80 px-4 py-1.5 rounded-full backdrop-blur-sm">
+      <div class="flex items-center gap-2">
+        <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span class="text-slate-300">CORE: <strong class="text-emerald-400 font-semibold" id="sys-status">ACTIVE</strong></span>
+      </div>
+      <div class="text-slate-700">|</div>
+      <div class="text-slate-400">FPS: <span class="text-slate-200 font-semibold" id="fps-display">60</span></div>
+      <div class="text-slate-700">|</div>
+      <div class="text-slate-400">LATENCY: <span class="text-slate-200 font-semibold" id="latency-display">14ms</span></div>
+      <div class="text-slate-700">|</div>
+      <div class="text-slate-400">ACCURACY: <span class="text-brand-400 font-semibold" id="accuracy-display">98.4%</span></div>
+    </div>
+
+    <!-- Right Controls -->
+    <div class="flex items-center gap-2.5">
+      <!-- Audio Toggle -->
+      <button id="toggle-audio-btn" class="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 transition-colors text-xs flex items-center gap-1.5" title="Toggle Sound FX">
+        <i data-lucide="volume-2" id="audio-icon" class="w-4 h-4 text-brand-400"></i>
+        <span class="hidden sm:inline text-[11px] font-mono">SFX</span>
+      </button>
+
+      <!-- Simulation / Real Camera Mode Switch -->
+      <div class="flex bg-slate-900 border border-slate-800 rounded-lg p-0.5 text-xs font-mono">
+        <button id="mode-camera-btn" class="px-2.5 py-1 rounded-md bg-brand-500/20 text-brand-400 border border-brand-500/30 transition-all font-medium flex items-center gap-1.5">
+          <i data-lucide="video" class="w-3.5 h-3.5"></i>
+          <span>Live Cam</span>
+        </button>
+        <button id="mode-demo-btn" class="px-2.5 py-1 rounded-md text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5">
+          <i data-lucide="play-circle" class="w-3.5 h-3.5"></i>
+          <span>Demo Sim</span>
+        </button>
+      </div>
+
+      <!-- Quick Reset -->
+      <button id="btn-reset-counters" class="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:border-rose-900 hover:text-rose-400 text-slate-400 transition-colors" title="Reset Data Counters">
+        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN DASHBOARD CONTENT -->
+  <main class="max-w-[1720px] mx-auto w-full px-4 lg:px-8 py-5 flex-1 grid grid-cols-1 xl:grid-cols-12 gap-5">
+
+    <!-- LEFT / HERO: REAL-TIME CAMERA & AI SORTING VIEWPORT (7 Cols on XL) -->
+    <section class="xl:col-span-7 flex flex-col gap-4">
+      
+      <!-- Video Viewfinder Frame -->
+      <div class="relative bg-slate-950/90 rounded-2xl border border-slate-800/80 shadow-2xl overflow-hidden flex flex-col">
+        
+        <!-- Viewfinder Header Overlay -->
+        <div class="absolute top-0 inset-x-0 z-20 px-4 py-3 flex items-center justify-between bg-gradient-to-b from-slate-950/90 via-slate-950/40 to-transparent pointer-events-none">
+          <div class="flex items-center gap-2 pointer-events-auto">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-medium tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30 backdrop-blur-md">
+              <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+              REC • LIVE FEED
+            </span>
+            <span id="cam-device-name" class="text-xs font-mono text-slate-300 hidden sm:inline-block bg-slate-900/80 px-2 py-0.5 rounded border border-slate-800">
+              Webcam Feed 01
+            </span>
+          </div>
+
+          <!-- Video action pills -->
+          <div class="flex items-center gap-2 pointer-events-auto">
+            <button id="btn-switch-cam" class="px-2.5 py-1 bg-slate-900/80 hover:bg-slate-800 text-slate-300 rounded text-xs font-mono border border-slate-700/60 backdrop-blur flex items-center gap-1 transition">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              <span class="hidden sm:inline">Flip / Cycle Cam</span>
+            </button>
+            <button id="btn-toggle-tracking" class="px-2.5 py-1 bg-slate-900/80 hover:bg-slate-800 text-brand-400 rounded text-xs font-mono border border-brand-500/30 backdrop-blur flex items-center gap-1 transition">
+              <i data-lucide="crosshair" class="w-3.5 h-3.5"></i>
+              <span>AI HUD: ON</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- The Video & Canvas Container -->
+        <div class="relative aspect-video w-full bg-black flex items-center justify-center overflow-hidden">
+          <!-- Real Webcam Video Element -->
+          <video id="webcam" autoplay playsinline muted class="w-full h-full object-cover"></video>
+          
+          <!-- Synthetic Demo Canvas (shown when Demo Sim active or camera inactive) -->
+          <canvas id="sim-canvas" class="absolute inset-0 w-full h-full object-cover hidden"></canvas>
+
+          <!-- Realtime AI Bounding Box & HUD Canvas Overlay -->
+          <canvas id="hud-canvas" class="absolute inset-0 w-full h-full pointer-events-none z-10"></canvas>
+
+          <!-- Camera Inactive / Permission Prompt Fallback -->
+          <div id="cam-fallback" class="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-center bg-slate-950/90 hidden">
+            <div class="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 mb-4">
+              <i data-lucide="camera-off" class="w-8 h-8"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-slate-200 mb-1">Akses Kamera Belum Diberikan</h3>
+            <p class="text-sm text-slate-400 max-w-md mb-4">
+              Silakan izinkan akses webcam untuk deteksi sampah real-time, atau gunakan mode <strong>Demo Sim</strong> untuk uji coba otomatis tanpa kamera fisik.
+            </p>
+            <div class="flex gap-3">
+              <button id="btn-request-cam" class="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-black font-semibold rounded-lg text-sm transition flex items-center gap-2">
+                <i data-lucide="video" class="w-4 h-4"></i> Izinkan Kamera
+              </button>
+              <button id="btn-switch-to-sim" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg text-sm transition flex items-center gap-2">
+                <i data-lucide="play" class="w-4 h-4"></i> Beralih ke Demo Sim
+              </button>
+            </div>
+          </div>
+
+          <!-- Futuristic Sci-Fi Viewfinder Corner Accents -->
+          <div class="corner-bracket top-3 left-3 border-t-2 border-l-2"></div>
+          <div class="corner-bracket top-3 right-3 border-t-2 border-r-2"></div>
+          <div class="corner-bracket bottom-3 left-3 border-b-2 border-l-2"></div>
+          <div class="corner-bracket bottom-3 right-3 border-b-2 border-r-2"></div>
+
+          <!-- Target Laser Scan Effect (subtle animated line) -->
+          <div id="scan-laser" class="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-brand-400 to-transparent pointer-events-none z-10 opacity-70 animate-scanline"></div>
+
+          <!-- Dynamic Target Lock Overlay Card (Float on camera) -->
+          <div id="target-pill" class="absolute bottom-5 left-5 z-20 flex items-center gap-3 bg-slate-900/90 border border-slate-700/80 rounded-xl p-3 backdrop-blur-md shadow-2xl transition-all duration-300 transform">
+            <div id="target-icon-box" class="w-11 h-11 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 flex items-center justify-center">
+              <i data-lucide="box" id="target-icon" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] font-mono tracking-wider uppercase text-slate-400">DETECTED OBJECT</span>
+                <span id="target-confidence-badge" class="px-1.5 py-0.2 rounded text-[10px] font-mono font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  98.6% CONF
+                </span>
+              </div>
+              <div class="text-base font-bold tracking-tight text-white flex items-center gap-2">
+                <span id="target-name">Plastic (PET Bottle)</span>
+                <span id="target-gate-tag" class="text-xs font-mono font-normal text-slate-400">[CHUTE #1]</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Manual Trigger / Classify Snapshot Float Button -->
+          <div class="absolute bottom-5 right-5 z-20 flex items-center gap-2">
+            <button id="btn-manual-classify" class="px-4 py-2.5 bg-brand-500 hover:bg-brand-400 text-obsidian font-bold rounded-xl text-xs font-mono tracking-wide shadow-lg shadow-brand-500/20 flex items-center gap-2 active:scale-95 transition-all">
+              <i data-lucide="aperture" class="w-4 h-4"></i>
+              <span>CLASSIFY NOW</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Camera Sub-Console: Pneumatic Gate / Conveyor Actuator Visualizer -->
+        <div class="p-4 bg-slate-900/70 border-t border-slate-800 flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i data-lucide="git-commit" class="w-4 h-4 text-brand-400"></i>
+              <span class="text-xs font-mono font-semibold tracking-wide text-slate-300 uppercase">
+                7-Lane Pneumatic Sorting Actuator Status
+              </span>
+            </div>
+            <span id="actuator-message" class="text-xs font-mono text-brand-400 flex items-center gap-1.5">
+              <span class="h-1.5 w-1.5 rounded-full bg-brand-400 animate-ping"></span>
+              Valve Array Ready • All Chutes Aligned
+            </span>
+          </div>
+
+          <!-- 7 Gate Visualizers (One for each waste stream) -->
+          <div class="grid grid-cols-7 gap-1.5 sm:gap-2 text-center text-xs font-mono">
+            
+            <!-- Gate 1: Plastic -->
+            <div id="gate-plastic" class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 transition-all duration-300 flex flex-col items-center gap-1 group">
+              <span class="text-[10px] text-slate-500 font-bold">#1 PLAS</span>
+              <div class="gate-led w-2 h-2 rounded-full bg-slate-700 transition-colors"></div>
+              <span class="text-[10px] text-cyan-400 font-semibold opacity-80">CHUTE</span>
+            </div>
+
+            <!-- Gate 2: Paper -->
+            <div id="gate-paper" class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 transition-all duration-300 flex flex-col items-center gap-1 group">
+              <span class="text-[10px] text-slate-500 font-bold">#2 PAP</span>
+              <div class="gate-led w-2 h-2 rounded-full bg-slate-700 transition-colors"></div>
+              <span class="text-[10px] text-amber-400 font-semibold opacity-80">CHUTE</span>
+            </div>
+
+            <!-- Gate 3: Metal -->
+            <div id="gate-metal" class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 transition-all duration-300 flex flex-col items-center gap-1 group">
+              <span class="text-[10px] text-slate-500 font-bold">#3 MET</span>
+              <div class="gate-led w-2 h-2 rounded-full bg-slate-700 transition-colors"></div>
+              <span class="text-[10px] text-slate-400 font-semibold opacity-80">CHUTE</span>
+            </div>
+
+            <!-- Gate 4: Cloth -->
+            <div id="gate-cloth" class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 transition-all duration-300 flex flex-col items-center gap-1 group">
+              <span class="text-[10px] text-slate-500 font-bold">#4 CLO</span>
+              <div class="gate-led w-2 h-2 rounded-full bg-slate-700 transition-colors"></div>
+              <span class="text-[10px] text-purple-400 font-semibold opacity-80">CHUTE</span>
+            </div>
+
+            <!-- Gate 5: Styrofoam -->
+            <div id="gate-styrofoam" class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 transition-all duration-300 flex flex-col items-center gap-1 group">
+              <span class="text-[10px] text-slate-500 font-bold">#5 STY</span>
+              <div class="gate-led w-2 h-2 rounded-full bg-slate-700 transition-colors"></div>
+              <span class="text-[10px] text-rose-400 font-semibold opacity-80">CHUTE</span>
+            </div>
+
+            <!-- Gate 6: Organic -->
+            <div id="gate-organic" class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 transition-all duration-300 flex flex-col items-center gap-1 group">
+              <span class="text-[10px] text-slate-500 font-bold">#6 ORG</span>
+              <div class="gate-led w-2 h-2 rounded-full bg-slate-700 transition-colors"></div>
+              <span class="text-[10px] text-emerald-400 font-semibold opacity-80">CHUTE</span>
+            </div>
+
+            <!-- Gate 7: Glass -->
+            <div id="gate-glass" class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 transition-all duration-300 flex flex-col items-center gap-1 group">
+              <span class="text-[10px] text-slate-500 font-bold">#7 GLS</span>
+              <div class="gate-led w-2 h-2 rounded-full bg-slate-700 transition-colors"></div>
+              <span class="text-[10px] text-sky-400 font-semibold opacity-80">CHUTE</span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Environmental Impact Ribbon -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono">
+        <div class="bg-cardbg/70 border border-slate-800/80 rounded-xl p-3 flex flex-col">
+          <span class="text-[10px] text-slate-400 uppercase tracking-wider">Total Processed</span>
+          <div class="text-xl font-bold text-white mt-1 flex items-baseline gap-1">
+            <span id="metric-total-count">1,248</span>
+            <span class="text-xs text-slate-500 font-normal">items</span>
+          </div>
+        </div>
+        <div class="bg-cardbg/70 border border-slate-800/80 rounded-xl p-3 flex flex-col">
+          <span class="text-[10px] text-slate-400 uppercase tracking-wider">Weight Sorted</span>
+          <div class="text-xl font-bold text-emerald-400 mt-1 flex items-baseline gap-1">
+            <span id="metric-total-weight">142.6</span>
+            <span class="text-xs text-slate-500 font-normal">kg</span>
+          </div>
+        </div>
+        <div class="bg-cardbg/70 border border-slate-800/80 rounded-xl p-3 flex flex-col">
+          <span class="text-[10px] text-slate-400 uppercase tracking-wider">CO₂ Offset Est.</span>
+          <div class="text-xl font-bold text-cyan-400 mt-1 flex items-baseline gap-1">
+            <span id="metric-co2-offset">84.2</span>
+            <span class="text-xs text-slate-500 font-normal">kg CO₂e</span>
+          </div>
+        </div>
+        <div class="bg-cardbg/70 border border-slate-800/80 rounded-xl p-3 flex flex-col">
+          <span class="text-[10px] text-slate-400 uppercase tracking-wider">Recyclability</span>
+          <div class="text-xl font-bold text-amber-400 mt-1 flex items-baseline gap-1">
+            <span id="metric-recyclability">91.4</span>
+            <span class="text-xs text-slate-500 font-normal">%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Event Stream & Audit Log -->
+      <div class="bg-cardbg/70 border border-slate-800/80 rounded-2xl p-4 flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <i data-lucide="activity" class="w-4 h-4 text-brand-400"></i>
+            <h3 class="text-xs font-mono font-bold tracking-wider text-slate-300 uppercase">Real-Time Sorting Telemetry Log</h3>
+          </div>
+          <button id="btn-export-log" class="text-[11px] font-mono text-slate-400 hover:text-brand-400 flex items-center gap-1 transition">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i> Export CSV
+          </button>
+        </div>
+
+        <div id="telemetry-log" class="h-32 overflow-y-auto space-y-1.5 font-mono text-xs pr-1">
+          <!-- Sample Rows injected via JS -->
+        </div>
+      </div>
+
+    </section>
+
+    <!-- RIGHT: THE 7 WASTE CATEGORIES MATRIX & TELEMETRY (5 Cols on XL) -->
+    <section class="xl:col-span-5 flex flex-col gap-4">
+
+      <!-- Section Title & Interactive Simulation Note -->
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-sm font-extrabold font-mono tracking-wider text-slate-200 uppercase flex items-center gap-2">
+            <i data-lucide="layers" class="w-4 h-4 text-brand-400"></i>
+            7 Stream Capacity & Storage Matrix
+          </h2>
+          <p class="text-xs text-slate-400">Klik salah satu kategori untuk simulasi manual atau tes pemilahan</p>
+        </div>
+        <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-900 border border-slate-800 text-slate-400">
+          7/7 CHANNELS READY
+        </span>
+      </div>
+
+      <!-- The 7 Category Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="category-cards-container">
+        
+        <!-- 1. PLASTIC -->
+        <div data-cat="plastic" class="waste-card cursor-pointer group bg-cardbg/80 hover:bg-slate-900 border border-slate-800 hover:border-cyan-500/50 rounded-xl p-3.5 transition-all duration-200 shadow-sm relative overflow-hidden">
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <i data-lucide="cup-soda" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h4 class="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">Plastic</h4>
+                <span class="text-[10px] font-mono text-slate-400">PET, HDPE, LDPE</span>
+              </div>
+            </div>
+            <span class="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/40 px-1.5 py-0.5 rounded">
+              CHUTE #1
+            </span>
+          </div>
+          <!-- Metrics -->
+          <div class="mt-3 flex items-baseline justify-between font-mono text-xs">
+            <span class="text-slate-400">Count: <strong class="text-white cat-count">342</strong></span>
+            <span class="text-slate-400">Weight: <strong class="text-cyan-400 cat-weight">38.4 kg</strong></span>
+          </div>
+          <!-- Fill Level Progress -->
+          <div class="mt-2 w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+            <div class="bg-cyan-400 h-full rounded-full transition-all duration-500 cat-bar" style="width: 58%"></div>
+          </div>
+          <div class="mt-1 flex justify-between text-[10px] font-mono text-slate-500">
+            <span>Bin Fill: <span class="cat-pct">58%</span></span>
+            <span class="opacity-0 group-hover:opacity-100 text-cyan-400 transition-opacity flex items-center gap-0.5">
+              Sort +1 <i data-lucide="chevron-right" class="w-3 h-3"></i>
+            </span>
+          </div>
+        </div>
+
+        <!-- 2. PAPER -->
+        <div data-cat="paper" class="waste-card cursor-pointer group bg-cardbg/80 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-xl p-3.5 transition-all duration-200 shadow-sm relative overflow-hidden">
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <i data-lucide="file-text" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h4 class="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">Paper</h4>
+                <span class="text-[10px] font-mono text-slate-400">Cardboard, Pulp, Paper</span>
+              </div>
+            </div>
+            <span class="text-[10px] font-mono text-amber-400 bg-amber-950/60 border border-amber-800/40 px-1.5 py-0.5 rounded">
+              CHUTE #2
+            </span>
+          </div>
+          <div class="mt-3 flex items-baseline justify-between font-mono text-xs">
+            <span class="text-slate-400">Count: <strong class="text-white cat-count">284</strong></span>
+            <span class="text-slate-400">Weight: <strong class="text-amber-400 cat-weight">29.1 kg</strong></span>
+          </div>
+          <div class="mt-2 w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+            <div class="bg-amber-400 h-full rounded-full transition-all duration-500 cat-bar" style="width: 44%"></div>
+          </div>
+          <div class="mt-1 flex justify-between text-[10px] font-mono text-slate-500">
+            <span>Bin Fill: <span class="cat-pct">44%</span></span>
+            <span class="opacity-0 group-hover:opacity-100 text-amber-400 transition-opacity flex items-center gap-0.5">
+              Sort +1 <i data-lucide="chevron-right" class="w-3 h-3"></i>
+            </span>
+          </div>
+        </div>
+
+        <!-- 3. METAL -->
+        <div data-cat="metal" class="waste-card cursor-pointer group bg-cardbg/80 hover:bg-slate-900 border border-slate-800 hover:border-slate-400/50 rounded-xl p-3.5 transition-all duration-200 shadow-sm relative overflow-hidden">
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-lg bg-slate-500/10 border border-slate-500/30 text-slate-300 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <i data-lucide="wrench" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h4 class="text-sm font-bold text-white group-hover:text-slate-200 transition-colors">Metal</h4>
+                <span class="text-[10px] font-mono text-slate-400">Aluminum, Cans, Iron</span>
+              </div>
+            </div>
+            <span class="text-[10px] font-mono text-slate-300 bg-slate-800/80 border border-slate-700/60 px-1.5 py-0.5 rounded">
+              CHUTE #3
+            </span>
+          </div>
+          <div class="mt-3 flex items-baseline justify-between font-mono text-xs">
+            <span class="text-slate-400">Count: <strong class="text-white cat-count">196</strong></span>
+            <span class="text-slate-400">Weight: <strong class="text-slate-300 cat-weight">34.8 kg</strong></span>
+          </div>
+          <div class="mt-2 w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+            <div class="bg-slate-400 h-full rounded-full transition-all duration-500 cat-bar" style="width: 72%"></div>
+          </div>
+          <div class="mt-1 flex justify-between text-[10px] font-mono text-slate-500">
+            <span>Bin Fill: <span class="cat-pct">72%</span></span>
+            <span class="opacity-0 group-hover:opacity-100 text-slate-300 transition-opacity flex items-center gap-0.5">
+              Sort +1 <i data-lucide="chevron-right" class="w-3 h-3"></i>
+            </span>
+          </div>
+        </div>
+
+        <!-- 4. CLOTH -->
+        <div data-cat="cloth" class="waste-card cursor-pointer group bg-cardbg/80 hover:bg-slate-900 border border-slate-800 hover:border-purple-500/50 rounded-xl p-3.5 transition-all duration-200 shadow-sm relative overflow-hidden">
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <i data-lucide="shirt" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h4 class="text-sm font-bold text-white group-hover:text-purple-300 transition-colors">Cloth</h4>
+                <span class="text-[10px] font-mono text-slate-400">Cotton, Synthetic, Denim</span>
+              </div>
+            </div>
+            <span class="text-[10px] font-mono text-purple-400 bg-purple-950/60 border border-purple-800/40 px-1.5 py-0.5 rounded">
+              CHUTE #4
+            </span>
+          </div>
+          <div class="mt-3 flex items-baseline justify-between font-mono text-xs">
+            <span class="text-slate-400">Count: <strong class="text-white cat-count">88</strong></span>
+            <span class="text-slate-400">Weight: <strong class="text-purple-400 cat-weight">16.2 kg</strong></span>
+          </div>
+          <div class="mt-2 w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+            <div class="bg-purple-400 h-full rounded-full transition-all duration-500 cat-bar" style="width: 32%"></div>
+          </div>
+          <div class="mt-1 flex justify-between text-[10px] font-mono text-slate-500">
+            <span>Bin Fill: <span class="cat-pct">32%</span></span>
+            <span class="opacity-0 group-hover:opacity-100 text-purple-400 transition-opacity flex items-center gap-0.5">
+              Sort +1 <i data-lucide="chevron-right" class="w-3 h-3"></i>
+            </span>
+          </div>
+        </div>
+
+        <!-- 5. STYROFOAM -->
+        <div data-cat="styrofoam" class="waste-card cursor-pointer group bg-cardbg/80 hover:bg-slate-900 border border-slate-800 hover:border-rose-500/50 rounded-xl p-3.5 transition-all duration-200 shadow-sm relative overflow-hidden">
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <i data-lucide="package" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h4 class="text-sm font-bold text-white group-hover:text-rose-300 transition-colors">Styrofoam</h4>
+                <span class="text-[10px] font-mono text-slate-400">EPS, Foam Trays, Cushions</span>
+              </div>
+            </div>
+            <span class="text-[10px] font-mono text-rose-400 bg-rose-950/60 border border-rose-800/40 px-1.5 py-0.5 rounded">
+              CHUTE #5
+            </span>
+          </div>
+          <div class="mt-3 flex items-baseline justify-between font-mono text-xs">
+            <span class="text-slate-400">Count: <strong class="text-white cat-count">64</strong></span>
+            <span class="text-slate-400">Weight: <strong class="text-rose-400 cat-weight">4.8 kg</strong></span>
+          </div>
+          <div class="mt-2 w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+            <div class="bg-rose-400 h-full rounded-full transition-all duration-500 cat-bar" style="width: 25%"></div>
+          </div>
+          <div class="mt-1 flex justify-between text-[10px] font-mono text-slate-500">
+            <span>Bin Fill: <span class="cat-pct">25%</span></span>
+            <span class="opacity-0 group-hover:opacity-100 text-rose-400 transition-opacity flex items-center gap-0.5">
+              Sort +1 <i data-lucide="chevron-right" class="w-3 h-3"></i>
+            </span>
+          </div>
+        </div>
+
+        <!-- 6. ORGANIC -->
+        <div data-cat="organic" class="waste-card cursor-pointer group bg-cardbg/80 hover:bg-slate-900 border border-slate-800 hover:border-emerald-500/50 rounded-xl p-3.5 transition-all duration-200 shadow-sm relative overflow-hidden">
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <i data-lucide="apple" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h4 class="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors">Organic</h4>
+                <span class="text-[10px] font-mono text-slate-400">Food, Compost, Flora</span>
+              </div>
+            </div>
+            <span class="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-1.5 py-0.5 rounded">
+              CHUTE #6
+            </span>
+          </div>
+          <div class="mt-3 flex items-baseline justify-between font-mono text-xs">
+            <span class="text-slate-400">Count: <strong class="text-white cat-count">198</strong></span>
+            <span class="text-slate-400">Weight: <strong class="text-emerald-400 cat-weight">41.2 kg</strong></span>
+          </div>
+          <div class="mt-2 w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+            <div class="bg-emerald-400 h-full rounded-full transition-all duration-500 cat-bar" style="width: 82%"></div>
+          </div>
+          <div class="mt-1 flex justify-between text-[10px] font-mono text-slate-500">
+            <span>Bin Fill: <span class="cat-pct text-amber-400">82%</span></span>
+            <span class="opacity-0 group-hover:opacity-100 text-emerald-400 transition-opacity flex items-center gap-0.5">
+              Sort +1 <i data-lucide="chevron-right" class="w-3 h-3"></i>
+            </span>
+          </div>
+        </div>
+
+        <!-- 7. GLASS (Full Width or 2-col span on sm) -->
+        <div data-cat="glass" class="waste-card cursor-pointer group bg-cardbg/80 hover:bg-slate-900 border border-slate-800 hover:border-sky-500/50 rounded-xl p-3.5 transition-all duration-200 shadow-sm relative overflow-hidden sm:col-span-2">
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <i data-lucide="wine" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h4 class="text-sm font-bold text-white group-hover:text-sky-300 transition-colors">Glass</h4>
+                <span class="text-[10px] font-mono text-slate-400">Flint, Amber & Emerald Glass Bottles, Cullet</span>
+              </div>
+            </div>
+            <span class="text-[10px] font-mono text-sky-400 bg-sky-950/60 border border-sky-800/40 px-1.5 py-0.5 rounded">
+              CHUTE #7
+            </span>
+          </div>
+          <div class="mt-3 flex items-baseline justify-between font-mono text-xs">
+            <span class="text-slate-400">Count: <strong class="text-white cat-count">78</strong></span>
+            <span class="text-slate-400">Weight: <strong class="text-sky-400 cat-weight">26.1 kg</strong></span>
+          </div>
+          <div class="mt-2 w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+            <div class="bg-sky-400 h-full rounded-full transition-all duration-500 cat-bar" style="width: 39%"></div>
+          </div>
+          <div class="mt-1 flex justify-between text-[10px] font-mono text-slate-500">
+            <span>Bin Fill: <span class="cat-pct">39%</span></span>
+            <span class="opacity-0 group-hover:opacity-100 text-sky-400 transition-opacity flex items-center gap-0.5">
+              Sort +1 <i data-lucide="chevron-right" class="w-3 h-3"></i>
+            </span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Real-time Breakdown Chart & Material Distribution -->
+      <div class="bg-cardbg/70 border border-slate-800/80 rounded-2xl p-4 flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-xs font-mono font-bold tracking-wider text-slate-300 uppercase flex items-center gap-2">
+            <i data-lucide="pie-chart" class="w-4 h-4 text-brand-400"></i>
+            7 Stream Share Ratio
+          </h3>
+          <span class="text-[10px] font-mono text-slate-400">REALTIME WEIGHT DISTRIBUTION</span>
+        </div>
+        <div class="relative h-44 w-full flex items-center justify-center">
+          <canvas id="ratioChart"></canvas>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- MINIMAL FOOTER -->
+  <footer class="border-t border-slate-800/80 bg-obsidian px-4 lg:px-8 py-3 text-xs font-mono text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
+    <div class="flex items-center gap-2">
+      <span class="text-brand-400 font-bold">GREENWASTE 7</span>
+      <span>•</span>
+      <span>Sistem Pemilahan Sampah 7 Kategori Otomatis</span>
+    </div>
+    <div class="flex items-center gap-4">
+      <span class="text-slate-400">Plastic | Paper | Metal | Cloth | Styrofoam | Organic | Glass</span>
+    </div>
+  </footer>
+
+  <!-- SCRIPT LOGIC -->
+  <script>
+    // --- 1. DATA STATE & CONFIG ---
+    const CATEGORIES = {
+      plastic: { name: 'Plastic', chute: '#1', color: '#06b6d4', icon: 'cup-soda', count: 342, weight: 38.4, maxCapacity: 100, items: ['PET Water Bottle', 'HDPE Detergent Cap', 'Plastic Bag', 'Food Wrapper'] },
+      paper: { name: 'Paper', chute: '#2', color: '#f59e0b', icon: 'file-text', count: 284, weight: 29.1, maxCapacity: 100, items: ['Cardboard Box', 'Newspaper', 'Paper Cup', 'Receipt Sheet'] },
+      metal: { name: 'Metal', chute: '#3', color: '#94a3b8', icon: 'wrench', count: 196, weight: 34.8, maxCapacity: 100, items: ['Soda Can', 'Tin Foil', 'Steel Lid', 'Metal Aerosol'] },
+      cloth: { name: 'Cloth', chute: '#4', color: '#a855f7', icon: 'shirt', count: 88, weight: 16.2, maxCapacity: 100, items: ['T-shirt Scrap', 'Denim Fabric', 'Cotton Glove', 'Towel Rag'] },
+      styrofoam: { name: 'Styrofoam', chute: '#5', color: '#f43f5e', icon: 'package', count: 64, weight: 4.8, maxCapacity: 100, items: ['Foam Lunchbox', 'EPS Packaging Wedge', 'Styrofoam Cup', 'Insulation Block'] },
+      organic: { name: 'Organic', chute: '#6', color: '#10b981', icon: 'apple', count: 198, weight: 41.2, maxCapacity: 100, items: ['Banana Peel', 'Apple Core', 'Leftover Rice', 'Vegetable Trimmings'] },
+      glass: { name: 'Glass', chute: '#7', color: '#38bdf8', icon: 'wine', count: 78, weight: 26.1, maxCapacity: 100, items: ['Glass Soda Bottle', 'Amber Medicine Bottle', 'Glass Jar', 'Cullet Shard'] }
+    };
+
+    let audioEnabled = true;
+    let isLiveCam = true;
+    let cameraStream = null;
+    let hudActive = true;
+    let currentFacingMode = 'user'; // 'user' or 'environment'
+    let availableVideoDevices = [];
+    let currentDeviceIndex = 0;
+
+    // Synthetic object tracking state for HUD canvas
+    let currentDetected = {
+      category: 'plastic',
+      item: 'PET Water Bottle',
+      confidence: 98.6,
+      box: { x: 0.35, y: 0.25, w: 0.3, h: 0.45 },
+      targetBox: { x: 0.35, y: 0.25, w: 0.3, h: 0.45 }
+    };
+
+    // Synthetic demo canvas animation
+    let simItems = [];
+    let simAnimationId = null;
+
+    // --- 2. AUDIO SYNTHESIZER (Web Audio API) ---
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function playBeep(type = 'detect') {
+      if (!audioEnabled) return;
+      try {
+        if (!audioCtx) audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        const now = audioCtx.currentTime;
+
+        if (type === 'detect') {
+          // Futuristic dual-tone chirp
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(880, now); // A5
+          osc.frequency.exponentialRampToValueAtTime(1320, now + 0.08); // E6
+          gain.gain.setValueAtTime(0.08, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+          osc.start(now);
+          osc.stop(now + 0.12);
+        } else if (type === 'actuate') {
+          // Pneumatic solenoid click
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(320, now);
+          osc.frequency.exponentialRampToValueAtTime(80, now + 0.09);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+          osc.start(now);
+          osc.stop(now + 0.09);
+        }
+      } catch (e) {
+        console.warn('Audio play error:', e);
+      }
+    }
+
+    // --- 3. CHART INITIALIZATION ---
+    let ratioChart = null;
+
+    function initChart() {
+      const ctx = document.getElementById('ratioChart').getContext('2d');
+      const labels = Object.values(CATEGORIES).map(c => c.name);
+      const dataWeights = Object.values(CATEGORIES).map(c => c.weight);
+      const bgColors = Object.values(CATEGORIES).map(c => c.color);
+
+      ratioChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: dataWeights,
+            backgroundColor: bgColors,
+            borderColor: '#0f172a',
+            borderWidth: 2,
+            hoverOffset: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: {
+                color: '#94a3b8',
+                font: { family: 'JetBrains Mono', size: 10 },
+                boxWidth: 12,
+                padding: 10
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return ` ${context.label}: ${context.raw} kg`;
+                }
+              }
+            }
+          },
+          cutout: '68%'
+        }
+      });
+    }
+
+    function updateChart() {
+      if (!ratioChart) return;
+      ratioChart.data.datasets[0].data = Object.values(CATEGORIES).map(c => c.weight);
+      ratioChart.update('none');
+    }
+
+    // --- 4. CAMERA & WEBCAM REALTIME HANDLER ---
+    const videoEl = document.getElementById('webcam');
+    const hudCanvas = document.getElementById('hud-canvas');
+    const hudCtx = hudCanvas.getContext('2d');
+    const simCanvas = document.getElementById('sim-canvas');
+    const camFallback = document.getElementById('cam-fallback');
+    const camDeviceName = document.getElementById('cam-device-name');
+
+    async function setupCamera() {
+      try {
+        if (cameraStream) {
+          cameraStream.getTracks().forEach(t => t.stop());
+        }
+
+        // List devices to see if multiple cameras exist
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        availableVideoDevices = devices.filter(d => d.kind === 'videoinput');
+
+        const constraints = {
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: currentFacingMode
+          },
+          audio: false
+        };
+
+        if (availableVideoDevices.length > 0 && availableVideoDevices[currentDeviceIndex]) {
+          constraints.video.deviceId = { exact: availableVideoDevices[currentDeviceIndex].deviceId };
+          camDeviceName.textContent = availableVideoDevices[currentDeviceIndex].label || `Webcam #${currentDeviceIndex + 1}`;
+        }
+
+        cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+        videoEl.srcObject = cameraStream;
+        videoEl.classList.remove('hidden');
+        simCanvas.classList.add('hidden');
+        camFallback.classList.add('hidden');
+        document.getElementById('mode-camera-btn').classList.add('bg-brand-500/20', 'text-brand-400', 'border-brand-500/30');
+        document.getElementById('mode-demo-btn').classList.remove('bg-brand-500/20', 'text-brand-400', 'border-brand-500/30');
+        isLiveCam = true;
+      } catch (err) {
+        console.warn("Webcam access error / no device:", err);
+        switchToDemoMode();
+      }
+    }
+
+    function switchToDemoMode() {
+      isLiveCam = false;
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+      }
+      videoEl.classList.add('hidden');
+      camFallback.classList.add('hidden');
+      simCanvas.classList.remove('hidden');
+
+      document.getElementById('mode-demo-btn').classList.add('bg-brand-500/20', 'text-brand-400', 'border-brand-500/30');
+      document.getElementById('mode-camera-btn').classList.remove('bg-brand-500/20', 'text-brand-400', 'border-brand-500/30');
+      camDeviceName.textContent = 'Simulated Conveyor Stream';
+      startSimulationLoop();
+    }
+
+    // --- 5. DEMO SIMULATION CONVEYOR CANVAS ---
+    function startSimulationLoop() {
+      const sCtx = simCanvas.getContext('2d');
+      let t = 0;
+
+      // Seed items moving along a simulated industrial conveyor belt
+      if (simItems.length === 0) {
+        for (let i = 0; i < 3; i++) {
+          simItems.push({
+            x: 0.2 + i * 0.35,
+            y: 0.5,
+            catKey: Object.keys(CATEGORIES)[(i * 2) % 7],
+            scale: 0.8 + Math.random() * 0.4,
+            speed: 0.0018
+          });
+        }
+      }
+
+      function renderSim() {
+        if (isLiveCam) return;
+
+        simCanvas.width = simCanvas.clientWidth;
+        simCanvas.height = simCanvas.clientHeight;
+        const w = simCanvas.width;
+        const h = simCanvas.height;
+
+        // Background conveyor bed
+        sCtx.fillStyle = '#060a12';
+        sCtx.fillRect(0, 0, w, h);
+
+        // Conveyor belt track
+        const beltY = h * 0.32;
+        const beltH = h * 0.38;
+
+        sCtx.fillStyle = '#0c1322';
+        sCtx.fillRect(0, beltY, w, beltH);
+
+        // Conveyor belt ribbed lines moving horizontally
+        t += 1.5;
+        sCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        sCtx.lineWidth = 2;
+        for (let x = (t % 30); x < w; x += 30) {
+          sCtx.beginPath();
+          sCtx.moveTo(x, beltY);
+          sCtx.lineTo(x, beltY + beltH);
+          sCtx.stroke();
+        }
+
+        // Draw items on conveyor
+        simItems.forEach(item => {
+          item.x += item.speed;
+          if (item.x > 1.2) {
+            item.x = -0.2;
+            const keys = Object.keys(CATEGORIES);
+            item.catKey = keys[Math.floor(Math.random() * keys.length)];
+          }
+
+          const cat = CATEGORIES[item.catKey];
+          const px = item.x * w;
+          const py = item.y * h;
+          const size = 50 * item.scale;
+
+          // Draw item shadow
+          sCtx.fillStyle = 'rgba(0,0,0,0.5)';
+          sCtx.beginPath();
+          sCtx.ellipse(px, py + size * 0.55, size * 0.6, size * 0.2, 0, 0, Math.PI * 2);
+          sCtx.fill();
+
+          // Draw item container
+          sCtx.fillStyle = cat.color + '33';
+          sCtx.strokeStyle = cat.color;
+          sCtx.lineWidth = 2;
+          sCtx.beginPath();
+          sCtx.roundRect(px - size / 2, py - size / 2, size, size, 8);
+          sCtx.fill();
+          sCtx.stroke();
+
+          // Draw center label
+          sCtx.fillStyle = '#fff';
+          sCtx.font = 'bold 11px "JetBrains Mono"';
+          sCtx.textAlign = 'center';
+          sCtx.textBaseline = 'middle';
+          sCtx.fillText(cat.name.toUpperCase().slice(0, 4), px, py);
+
+          // If item is near the optical sensor center (x between 0.4 and 0.6), update HUD tracking target!
+          if (item.x >= 0.42 && item.x <= 0.58) {
+            currentDetected.category = item.catKey;
+            currentDetected.item = cat.items[Math.floor(Math.random() * cat.items.length)];
+            currentDetected.confidence = +(95 + Math.random() * 4.8).toFixed(1);
+            currentDetected.targetBox = {
+              x: item.x - 0.12,
+              y: 0.36,
+              w: 0.24,
+              h: 0.32
+            };
+          }
+        });
+
+        requestAnimationFrame(renderSim);
+      }
+
+      renderSim();
+    }
+
+    // --- 6. REALTIME AI HUD & TARGET TRACKING RENDERER ---
+    function renderHUD() {
+      hudCanvas.width = hudCanvas.clientWidth;
+      hudCanvas.height = hudCanvas.clientHeight;
+      const w = hudCanvas.width;
+      const h = hudCanvas.height;
+
+      hudCtx.clearRect(0, 0, w, h);
+
+      if (hudActive) {
+        // Smoothly interpolate current box towards target box
+        const b = currentDetected.box;
+        const tb = currentDetected.targetBox;
+        b.x += (tb.x - b.x) * 0.15;
+        b.y += (tb.y - b.y) * 0.15;
+        b.w += (tb.w - b.w) * 0.15;
+        b.h += (tb.h - b.h) * 0.15;
+
+        const bx = b.x * w;
+        const by = b.y * h;
+        const bw = b.w * w;
+        const bh = b.h * h;
+
+        const cat = CATEGORIES[currentDetected.category] || CATEGORIES.plastic;
+        const col = cat.color;
+
+        // Draw Bounding Box (Futuristic dashed corners)
+        hudCtx.save();
+        hudCtx.strokeStyle = col;
+        hudCtx.lineWidth = 2;
+        hudCtx.shadowColor = col;
+        hudCtx.shadowBlur = 8;
+
+        // Corner brackets on detected object
+        const cornerLen = Math.min(20, bw * 0.3);
+
+        // Top Left
+        hudCtx.beginPath();
+        hudCtx.moveTo(bx, by + cornerLen);
+        hudCtx.lineTo(bx, by);
+        hudCtx.lineTo(bx + cornerLen, by);
+        hudCtx.stroke();
+
+        // Top Right
+        hudCtx.beginPath();
+        hudCtx.moveTo(bx + bw - cornerLen, by);
+        hudCtx.lineTo(bx + bw, by);
+        hudCtx.lineTo(bx + bw, by + cornerLen);
+        hudCtx.stroke();
+
+        // Bottom Left
+        hudCtx.beginPath();
+        hudCtx.moveTo(bx, by + bh - cornerLen);
+        hudCtx.lineTo(bx, by + bh);
+        hudCtx.lineTo(bx + cornerLen, by + bh);
+        hudCtx.stroke();
+
+        // Bottom Right
+        hudCtx.beginPath();
+        hudCtx.moveTo(bx + bw - cornerLen, by + bh);
+        hudCtx.lineTo(bx + bw, by + bh);
+        hudCtx.lineTo(bx + bw, by + bh - cornerLen);
+        hudCtx.stroke();
+
+        // Crosshair in center of box
+        const cx = bx + bw / 2;
+        const cy = by + bh / 2;
+        hudCtx.strokeStyle = col + '88';
+        hudCtx.lineWidth = 1;
+        hudCtx.beginPath();
+        hudCtx.moveTo(cx - 8, cy);
+        hudCtx.lineTo(cx + 8, cy);
+        hudCtx.moveTo(cx, cy - 8);
+        hudCtx.lineTo(cx, cy + 8);
+        hudCtx.stroke();
+
+        // Floating Tag above Bounding Box
+        hudCtx.fillStyle = '#070a12e6';
+        hudCtx.strokeStyle = col;
+        hudCtx.lineWidth = 1;
+        const tagText = `${cat.name.toUpperCase()} [${currentDetected.confidence}%]`;
+        hudCtx.font = 'bold 11px "JetBrains Mono"';
+        const textMetrics = hudCtx.measureText(tagText);
+        const tagW = textMetrics.width + 16;
+        const tagH = 22;
+        const tagY = Math.max(10, by - tagH - 4);
+
+        hudCtx.beginPath();
+        hudCtx.roundRect(bx, tagY, tagW, tagH, 4);
+        hudCtx.fill();
+        hudCtx.stroke();
+
+        hudCtx.fillStyle = col;
+        hudCtx.fillText(tagText, bx + 8, tagY + 15);
+
+        hudCtx.restore();
+
+        // Update Floating Target Pill element on UI
+        document.getElementById('target-name').textContent = `${cat.name} (${currentDetected.item})`;
+        document.getElementById('target-gate-tag').textContent = `[CHUTE ${cat.chute}]`;
+        document.getElementById('target-confidence-badge').textContent = `${currentDetected.confidence}% CONF`;
+        document.getElementById('target-confidence-badge').style.borderColor = col + '60';
+        document.getElementById('target-confidence-badge').style.color = col;
+        document.getElementById('target-confidence-badge').style.backgroundColor = col + '20';
+        document.getElementById('target-icon-box').style.borderColor = col + '60';
+        document.getElementById('target-icon-box').style.color = col;
+        document.getElementById('target-icon-box').style.backgroundColor = col + '20';
+      }
+
+      requestAnimationFrame(renderHUD);
+    }
+
+    // --- 7. SORTING ENGINE & PNEUMATIC ACTUATION SIMULATION ---
+    function triggerSort(categoryKey, itemName = null) {
+      const cat = CATEGORIES[categoryKey];
+      if (!cat) return;
+
+      const detectedName = itemName || cat.items[Math.floor(Math.random() * cat.items.length)];
+      const weightDelta = +(0.05 + Math.random() * 0.45).toFixed(2);
+
+      // Increment stats
+      cat.count++;
+      cat.weight = +(cat.weight + weightDelta).toFixed(1);
+
+      // Sound
+      playBeep('detect');
+      setTimeout(() => playBeep('actuate'), 120);
+
+      // Highlight corresponding Actuator Gate
+      const gateEl = document.getElementById(`gate-${categoryKey}`);
+      if (gateEl) {
+        gateEl.classList.add('bg-brand-500/30', 'border-brand-400', 'scale-105');
+        const led = gateEl.querySelector('.gate-led');
+        if (led) {
+          led.classList.remove('bg-slate-700');
+          led.classList.add('bg-brand-400', 'shadow-[0_0_8px_#10b981]');
+        }
+
+        const actuatorMsg = document.getElementById('actuator-message');
+        actuatorMsg.innerHTML = `<span class="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-ping"></span> Actuating Chute ${cat.chute} (${cat.name}) • Solenoid Valve Triggered`;
+
+        setTimeout(() => {
+          gateEl.classList.remove('bg-brand-500/30', 'border-brand-400', 'scale-105');
+          if (led) {
+            led.classList.add('bg-slate-700');
+            led.classList.remove('bg-brand-400', 'shadow-[0_0_8px_#10b981]');
+          }
+          actuatorMsg.innerHTML = `<span class="h-1.5 w-1.5 rounded-full bg-brand-400 animate-ping"></span> Valve Array Ready • All Chutes Aligned`;
+        }, 900);
+      }
+
+      // Update Card UI
+      const card = document.querySelector(`.waste-card[data-cat="${categoryKey}"]`);
+      if (card) {
+        card.querySelector('.cat-count').textContent = cat.count;
+        card.querySelector('.cat-weight').textContent = `${cat.weight} kg`;
+        const fillPct = Math.min(100, Math.round((cat.weight / cat.maxCapacity) * 100));
+        card.querySelector('.cat-pct').textContent = `${fillPct}%`;
+        card.querySelector('.cat-bar').style.width = `${fillPct}%`;
+
+        // Subtle flash animation on card
+        card.classList.add('ring-1', 'ring-brand-400');
+        setTimeout(() => card.classList.remove('ring-1', 'ring-brand-400'), 500);
+      }
+
+      // Update Totals
+      refreshTotals();
+
+      // Update Chart
+      updateChart();
+
+      // Add to Telemetry Log
+      logTelemetry(cat, detectedName, weightDelta);
+    }
+
+    function refreshTotals() {
+      let totalCount = 0;
+      let totalWeight = 0;
+
+      Object.values(CATEGORIES).forEach(c => {
+        totalCount += c.count;
+        totalWeight += c.weight;
+      });
+
+      document.getElementById('metric-total-count').textContent = totalCount.toLocaleString();
+      document.getElementById('metric-total-weight').textContent = totalWeight.toFixed(1);
+
+      // CO2 offset estimate (~0.59 kg CO2e per kg recycled waste average)
+      const co2 = (totalWeight * 0.59).toFixed(1);
+      document.getElementById('metric-co2-offset').textContent = co2;
+    }
+
+    function logTelemetry(cat, itemName, weightDelta) {
+      const container = document.getElementById('telemetry-log');
+      const now = new Date();
+      const timeStr = now.toTimeString().split(' ')[0];
+
+      const row = document.createElement('div');
+      row.className = 'flex items-center justify-between py-1 px-2.5 rounded bg-slate-900/60 border border-slate-800/80 text-[11px] animate-fadeIn';
+      row.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="text-slate-500 font-mono">${timeStr}</span>
+          <span class="px-1.5 py-0.2 rounded font-mono font-semibold" style="background:${cat.color}22; color:${cat.color}; border:1px solid ${cat.color}44">
+            CHUTE ${cat.chute}
+          </span>
+          <span class="text-slate-200 font-medium">${itemName}</span>
+        </div>
+        <div class="flex items-center gap-3 text-slate-400 font-mono">
+          <span class="text-emerald-400">+${weightDelta} kg</span>
+          <span class="text-slate-500">Diverted</span>
+        </div>
+      `;
+
+      container.insertBefore(row, container.firstChild);
+      if (container.children.length > 25) {
+        container.removeChild(container.lastChild);
+      }
+    }
+
+    // --- 8. SIMULATED RANDOM CAMERA CLASSIFIER IN LIVE CAM MODE ---
+    // If in live cam mode, simulates AI model inference detections every 3-5 seconds
+    setInterval(() => {
+      if (isLiveCam) {
+        const catKeys = Object.keys(CATEGORIES);
+        const randKey = catKeys[Math.floor(Math.random() * catKeys.length)];
+        const cat = CATEGORIES[randKey];
+
+        // Random jitter in bounding box coordinates to simulate real object tracking
+        currentDetected.category = randKey;
+        currentDetected.item = cat.items[Math.floor(Math.random() * cat.items.length)];
+        currentDetected.confidence = +(94 + Math.random() * 5.8).toFixed(1);
+        currentDetected.targetBox = {
+          x: 0.25 + (Math.random() * 0.2 - 0.1),
+          y: 0.22 + (Math.random() * 0.2 - 0.1),
+          w: 0.28 + (Math.random() * 0.1 - 0.05),
+          h: 0.42 + (Math.random() * 0.1 - 0.05)
+        };
+
+        // Update latency counter with natural variance
+        const lat = Math.floor(12 + Math.random() * 6);
+        document.getElementById('latency-display').textContent = `${lat}ms`;
+      }
+    }, 3200);
+
+    // --- 9. EVENT LISTENERS & UI WIRING ---
+    document.addEventListener('DOMContentLoaded', () => {
+      // Initialize Lucide icons
+      lucide.createIcons();
+
+      // Initialize Chart
+      initChart();
+
+      // Setup Camera
+      setupCamera();
+
+      // Start HUD rendering
+      renderHUD();
+
+      // Pre-populate some telemetry logs
+      const sampleEvents = [
+        { cat: CATEGORIES.plastic, item: 'PET Water Bottle', delta: 0.04 },
+        { cat: CATEGORIES.paper, item: 'Cardboard Box', delta: 0.22 },
+        { cat: CATEGORIES.metal, item: 'Aluminum Soda Can', delta: 0.08 },
+        { cat: CATEGORIES.organic, item: 'Fruit Compost', delta: 0.15 },
+        { cat: CATEGORIES.glass, item: 'Green Glass Bottle', delta: 0.35 },
+      ];
+      sampleEvents.forEach(e => logTelemetry(e.cat, e.item, e.delta));
+      refreshTotals();
+
+      // Manual Category Card Clicks (Interactive manual sort)
+      document.querySelectorAll('.waste-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const catKey = card.getAttribute('data-cat');
+          triggerSort(catKey);
+        });
+      });
+
+      // Manual Snapshot Button
+      document.getElementById('btn-manual-classify').addEventListener('click', () => {
+        triggerSort(currentDetected.category, currentDetected.item);
+      });
+
+      // Camera / Demo Mode Switchers
+      document.getElementById('mode-camera-btn').addEventListener('click', setupCamera);
+      document.getElementById('mode-demo-btn').addEventListener('click', switchToDemoMode);
+      document.getElementById('btn-switch-to-sim').addEventListener('click', switchToDemoMode);
+      document.getElementById('btn-request-cam').addEventListener('click', setupCamera);
+
+      // Cycle / Flip Camera (user vs environment or device cycle)
+      document.getElementById('btn-switch-cam').addEventListener('click', async () => {
+        if (availableVideoDevices.length > 1) {
+          currentDeviceIndex = (currentDeviceIndex + 1) % availableVideoDevices.length;
+        } else {
+          currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+        }
+        setupCamera();
+      });
+
+      // Toggle HUD
+      document.getElementById('btn-toggle-tracking').addEventListener('click', () => {
+        hudActive = !hudActive;
+        const btn = document.getElementById('btn-toggle-tracking');
+        btn.innerHTML = hudActive ? '<i data-lucide="crosshair" class="w-3.5 h-3.5"></i> <span>AI HUD: ON</span>' : '<i data-lucide="crosshair" class="w-3.5 h-3.5"></i> <span>AI HUD: OFF</span>';
+        btn.classList.toggle('text-brand-400', hudActive);
+        btn.classList.toggle('text-slate-500', !hudActive);
+        document.getElementById('target-pill').classList.toggle('opacity-0', !hudActive);
+        lucide.createIcons();
+      });
+
+      // Audio Toggle
+      document.getElementById('toggle-audio-btn').addEventListener('click', () => {
+        audioEnabled = !audioEnabled;
+        const icon = document.getElementById('audio-icon');
+        icon.setAttribute('data-lucide', audioEnabled ? 'volume-2' : 'volume-x');
+        icon.classList.toggle('text-brand-400', audioEnabled);
+        icon.classList.toggle('text-slate-500', !audioEnabled);
+        lucide.createIcons();
+      });
+
+      // Reset Counters
+      document.getElementById('btn-reset-counters').addEventListener('click', () => {
+        if (confirm('Reset semua statistik pemilahan GreenWaste 7 ke 0?')) {
+          Object.values(CATEGORIES).forEach(c => {
+            c.count = 0;
+            c.weight = 0;
+          });
+          document.querySelectorAll('.waste-card').forEach(card => {
+            card.querySelector('.cat-count').textContent = '0';
+            card.querySelector('.cat-weight').textContent = '0.0 kg';
+            card.querySelector('.cat-pct').textContent = '0%';
+            card.querySelector('.cat-bar').style.width = '0%';
+          });
+          refreshTotals();
+          updateChart();
+          document.getElementById('telemetry-log').innerHTML = '<div class="text-slate-600 text-[11px] p-2 text-center font-mono">Log dikosongkan.</div>';
+        }
+      });
+
+      // Export CSV
+      document.getElementById('btn-export-log').addEventListener('click', () => {
+        const rows = [
+          ['Category', 'Chute', 'Item Count', 'Weight (kg)', 'Max Capacity (kg)'],
+          ...Object.values(CATEGORIES).map(c => [c.name, c.chute, c.count, c.weight, c.maxCapacity])
+        ];
+        const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n');
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement('a');
+        link.setAttribute('href', encodedUri);
+        link.setAttribute('download', `greenwaste7_report_${new Date().toISOString().slice(0,10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      });
+    });
+  </script>
+</body>
+</html>
